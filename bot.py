@@ -1,3 +1,4 @@
+
 import requests
 import os
 import psutil
@@ -19,7 +20,7 @@ import logging
 from datetime import datetime, timedelta
 from google.protobuf.timestamp_pb2 import Timestamp
 from concurrent.futures import ThreadPoolExecutor
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, ForceReply
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # ================= [ إعدادات المتغيرات البيئية ] =================
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -205,8 +206,7 @@ def send_message_to_all_groups(message_text):
         except telebot.apihelper.ApiTelegramException as e:
             if "chat not found" in str(e) or "bot was kicked from the group chat" in str(e):
                 print(f"⚠️ فشل إرسال رسالة إلى المجموعة {group_id}: البوت ليس عضواً. سيتم حذفها.")
-                if str(group_id) in ACTIVATED_GROUPS:
-                    del ACTIVATED_GROUPS[str(group_id)]
+                del ACTIVATED_GROUPS[group_id]
                 save_activated_groups()
             else:
                 print(f"⚠️ فشل إرسال رسالة إلى المجموعة {group_id}: {e}")
@@ -243,6 +243,7 @@ def check_group_access(message):
         return False, "group_not_activated"
 
 def bold_decor(text: str) -> str:
+    """تزيين النص بخط عريض وزخرفة خفيفة"""
     return f"⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯\n*{text}*\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯"
 
 def fancy_text(core: str) -> str:
@@ -346,7 +347,7 @@ class FF_CLient:
                         self.CliEnts2.close()
                 except:
                     pass
-                self.Connect_SerVer(Token, tok, host, port, key, iv, host2, port2)
+                self.Connect_SerVer(Token, tok, host, port, key, iv, ip2, port2)
     
     def process_messages(self):
         try:
@@ -571,9 +572,8 @@ def send_spam_from_all_accounts(target_id):
             except Exception as e:
                 print(f"⚠️ خطأ في إرسال السبام من {account_id}: {e}")
 
-# ================= [ دالة السبام الأصلية مع تفعيل المصادقة التلقائية ] =================
 def spam_worker(target_id, duration_minutes=None, chat_id=None):
-    print(f"🔥 بدء السبام الأصلي على الهدف: {target_id}" + (f" لمدة {duration_minutes} دقيقة" if duration_minutes else ""))
+    print(f"🔥 بدء السبام على الهدف: {target_id}" + (f" لمدة {duration_minutes} دقيقة" if duration_minutes else ""))
     
     start_time = datetime.now()
     cycle_count = 0
@@ -588,8 +588,7 @@ def spam_worker(target_id, duration_minutes=None, chat_id=None):
                 elapsed = datetime.now() - start_time
                 if elapsed.total_seconds() >= duration_minutes * 60:
                     print(f"✅ انتهت مدة السبام على الهدف: {target_id}")
-                    if target_id in active_spam_targets:
-                        del active_spam_targets[target_id]
+                    del active_spam_targets[target_id]
                     if chat_id:
                         try:
                             bot.send_message(
@@ -602,18 +601,8 @@ def spam_worker(target_id, duration_minutes=None, chat_id=None):
                     break
         
         try:
-            # هنا يتم تشغيل نظام سبام ات المتكامل دون حذف
             send_spam_from_all_accounts(target_id)
             cycle_count += 1
-            
-            # محاكاة المصادقة والإرسال المباشر للاتصالات الفورية
-            with connected_clients_lock:
-                for acc_id, client in list(connected_clients.items()):
-                    if hasattr(client, 'AutH'):
-                        try:
-                            xSEndMsg(client.CliEnts2, client.key, client.iv, Auth_Chat(client.key, client.iv, client.AutH, target_id))
-                        except:
-                            pass
             
             if cycle_count % 10 == 0:
                 print(f"📊 الدورة {cycle_count} اكتملت - {target_id}")
@@ -646,50 +635,40 @@ def auto_restart_timer():
         python = sys.executable
         os.execl(python, python, *sys.argv)
 
-# ========== لوحات التحكم بالأزرار (تفتح الخانات تلقائياً) ==========
+# ========== الأزرار ==========
 def main_menu_buttons():
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton("🚀 خانة البدء (سبام)", callback_data="box_spam"),
-        InlineKeyboardButton("⏹️ خانة الإيقاف", callback_data="box_stop"),
-        InlineKeyboardButton("📊 الحالة النظامية", callback_data="box_status"),
-        InlineKeyboardButton("📋 الحسابات المتصلة", callback_data="box_accounts"),
-        InlineKeyboardButton("❓ المساعدة", callback_data="box_help")
+        InlineKeyboardButton("🚀 سبام", callback_data="menu_spam"),
+        InlineKeyboardButton("⏹️ إيقاف", callback_data="menu_stop"),
+        InlineKeyboardButton("📊 الحالة", callback_data="menu_status"),
+        InlineKeyboardButton("📋 الحسابات", callback_data="menu_accounts"),
+        InlineKeyboardButton("❓ مساعدة", callback_data="menu_help")
     )
     return kb
 
 def admin_panel_buttons():
     kb = InlineKeyboardMarkup(row_width=2)
     kb.add(
-        InlineKeyboardButton("➕ خانة التفعيل", callback_data="box_admin_activate"),
-        InlineKeyboardButton("➖ خانة إلغاء التفعيل", callback_data="box_admin_deactivate"),
-        InlineKeyboardButton("📋 المجموعات النشطة", callback_data="box_admin_groups"),
-        InlineKeyboardButton("🛠️ صيانة ON", callback_data="box_admin_maint_on"),
-        InlineKeyboardButton("🟢 صيانة OFF", callback_data="box_admin_maint_off"),
-        InlineKeyboardButton("⏹️ إيقاف الكل", callback_data="box_admin_stopall"),
-        InlineKeyboardButton("🔄 إعادة تشغيل", callback_data="box_admin_restart"),
-        InlineKeyboardButton("📢 خانة الإذاعة", callback_data="box_admin_broadcast"),
-        InlineKeyboardButton("🔑 إعادة تسجيل الحسابات", callback_data="box_admin_login")
+        InlineKeyboardButton("➕ تفعيل 30 يوم", callback_data="admin_activate_30"),
+        InlineKeyboardButton("➖ إلغاء تفعيل", callback_data="admin_deactivate"),
+        InlineKeyboardButton("📋 المجموعات", callback_data="admin_groups"),
+        InlineKeyboardButton("🛠️ صيانة ON", callback_data="admin_maint_on"),
+        InlineKeyboardButton("🟢 صيانة OFF", callback_data="admin_maint_off"),
+        InlineKeyboardButton("⏹️ إيقاف الكل", callback_data="admin_stopall"),
+        InlineKeyboardButton("🔄 إعادة تشغيل", callback_data="admin_restart"),
+        InlineKeyboardButton("📢 إذاعة", callback_data="admin_broadcast"),
+        InlineKeyboardButton("🔑 إعادة تسجيل", callback_data="admin_login")
     )
     return kb
 
-# ========== معالجة /start الوجهة السريعة ==========
-@bot.message_handler(commands=['start', 'help', 'id'])
+# ========== أوامر البوت بالأزرار ==========
+@bot.message_handler(commands=['start'])
 def start_command(message):
     if maintenance_mode and not is_admin(message.from_user.id):
         bot.reply_to(message, bold_decor("⚙️ البوت في وضع الصيانة حاليًا\n\nسيتم إعادته للعمل قريبًا.\nنعتذر عن الإزعاج."), parse_mode="Markdown")
         return
-        
-    if message.text.startswith('/id'):
-        user_id = message.from_user.id
-        chat_id = message.chat.id
-        if message.chat.type == "private":
-            text = f"👤 *الآيدي الخاص بك:* `{user_id}`"
-        else:
-            text = f"👤 *الآيدي الخاص بك:* `{user_id}`\n👥 *آيدي المجموعة:* `{chat_id}`"
-        bot.reply_to(message, bold_decor(text), parse_mode="Markdown")
-        return
-
+    
     if is_private_chat(message):
         if is_admin(message.from_user.id):
             with connected_clients_lock:
@@ -700,193 +679,524 @@ def start_command(message):
         return
     
     if is_group_activated(message.chat.id):
-        bot.send_message(message.chat.id, bold_decor(f"🔥 *ISMAIL SPAM نشط*\nاستخدم الأزرار بالأسفل لتنفيذ الإجراءات"), reply_markup=main_menu_buttons(), parse_mode="Markdown")
+        bot.send_message(message.chat.id, bold_decor(f"🔥 *ISMAIL SPAM نشط*\nاستخدم الأزرار بالأسفل"), reply_markup=main_menu_buttons(), parse_mode="Markdown")
     else:
         access_denied_message(message, "group_not_activated")
 
-# ========== معالجة ضغط الأزرار المنبثقة للرد بالنظام الجديد ==========
+@bot.message_handler(commands=['help'])
+def help_command(message):
+    if is_private_chat(message) and is_admin(message.from_user.id):
+        bot.send_message(message.chat.id, fancy_text("لوحة تحكم المطور"), reply_markup=admin_panel_buttons(), parse_mode="Markdown")
+    elif not is_private_chat(message) and is_group_activated(message.chat.id):
+        bot.send_message(message.chat.id, fancy_text("القائمة الرئيسية"), reply_markup=main_menu_buttons(), parse_mode="Markdown")
+    else:
+        if is_private_chat(message) and not is_admin(message.from_user.id):
+            bot.reply_to(message, "🗿")
+        else:
+            help_text = bold_decor("🛡️ *الأوامر المتاحة*\n/spam id [مدة]\n/stop id\n/status\n/accounts\n/id\n━━━━━━\nللمطور: /activate, /deactivate, /groups, /maintenance, /unmaintenance, /stopall, /restart, /broadcast, /login")
+            bot.reply_to(message, help_text, parse_mode="Markdown")
+
+# ========== أمر الآيدي المضاف جديداً ==========
+@bot.message_handler(commands=['id'])
+def get_my_id(message):
+    # لا نقوم بوضع الفلتر هنا لكي يتمكن أي شخص من معرفة آيديه والجروب حتى لو كان غير مفعل
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    
+    if message.chat.type == "private":
+        text = f"👤 *الآيدي الخاص بك:* `{user_id}`"
+    else:
+        text = f"👤 *الآيدي الخاص بك:* `{user_id}`\n👥 *آيدي المجموعة:* `{chat_id}`"
+        
+    bot.reply_to(message, bold_decor(text), parse_mode="Markdown")
+
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     user_id = call.from_user.id
     chat_id = call.message.chat.id
     msg = call.message
     
-    if "admin" in call.data and not is_admin(user_id):
-        bot.answer_callback_query(call.id, "⛔ هذا الإجراء للمطور فقط", show_alert=True)
-        return
-
-    if call.data == "box_spam":
-        bot.send_message(chat_id, "🎯 *خانة بدء الهجوم:*\nأرسل الآن معرف الهدف والوقت بالدقائق مفصولين بمسافة\nمثال: `5467382 10`", parse_mode="Markdown", reply_markup=ForceReply(selective=True))
-        
-    elif call.data == "box_stop":
-        bot.send_message(chat_id, "⏹️ *خانة إيقاف الهجوم:*\nأرسل معرف الهدف (ID) الذي تود إيقافه الآن:", parse_mode="Markdown", reply_markup=ForceReply(selective=True))
-        
-    elif call.data == "box_status":
-        with active_spam_lock: targets = list(active_spam_targets.keys())
+    if call.data == "menu_spam":
+        bot.edit_message_text(bold_decor("🎯 *أرسل الأمر:* `/spam [id] [مدة]`"), chat_id, msg.message_id, parse_mode="Markdown")
+    elif call.data == "menu_stop":
+        bot.edit_message_text(bold_decor("⏹️ *أرسل:* `/stop [id]`"), chat_id, msg.message_id, parse_mode="Markdown")
+    elif call.data == "menu_status":
+        with active_spam_lock: targets = len(active_spam_targets)
         with connected_clients_lock: acc = len(connected_clients)
-        status = bold_decor(f"📊 *حالة النظام الحالية*\n\n✅ حسابات: {acc}/{len(ACCOUNTS)}\n🎯 هجمات: {len(targets)}\n📌 مجموعات: {len(ACTIVATED_GROUPS)}")
-        bot.edit_message_text(status, chat_id, msg.message_id, reply_markup=main_menu_buttons(), parse_mode="Markdown")
-        
-    elif call.data == "box_accounts":
+        status = bold_decor(f"📊 *الحالة*\n✅ حسابات: {acc}/{len(ACCOUNTS)}\n🎯 هجمات: {targets}\n📌 مجموعات: {len(ACTIVATED_GROUPS)}")
+        bot.edit_message_text(status, chat_id, msg.message_id, parse_mode="Markdown")
+    elif call.data == "menu_accounts":
         with connected_clients_lock: lst = list(connected_clients.keys())
         txt = "📋 *الحسابات المتصلة:*\n" + "\n".join([f"• `{a}`" for a in lst[:15]]) + (f"\n... و{len(lst)-15} أخرى" if len(lst)>15 else "")
-        bot.edit_message_text(bold_decor(txt), chat_id, msg.message_id, reply_markup=main_menu_buttons(), parse_mode="Markdown")
-        
-    elif call.data == "box_help":
-        help_txt = bold_decor("🛡️ *دليل الاستخدام الذكي:*\nاضغط على الزر المطلوب وقم بالرد على خانة الإدخال المفتوحة مباشرة دون كتابة أي أوامر نصية.")
-        bot.edit_message_text(help_txt, chat_id, msg.message_id, reply_markup=main_menu_buttons(), parse_mode="Markdown")
+        bot.edit_message_text(bold_decor(txt), chat_id, msg.message_id, parse_mode="Markdown")
+    elif call.data == "menu_help":
+        help_txt = bold_decor("🛡️ *الأوامر المتاحة*\n/spam id [مدة]\n/stop id\n/status\n/accounts\n/id\n━━━━━━\nللمطور: /activate, /deactivate, /groups, /maintenance, /unmaintenance, /stopall, /restart, /broadcast, /login")
+        bot.edit_message_text(help_txt, chat_id, msg.message_id, parse_mode="Markdown")
     
-    elif call.data == "box_admin_activate":
-        bot.send_message(chat_id, "➕ *خانة تفعيل المجموعة:*\nأرسل الآن آيدي المجموعة والمدة بالأيام مفصولين بمسافة\nمثال: `-10022334455 30`", parse_mode="Markdown", reply_markup=ForceReply(selective=True))
-        
-    elif call.data == "box_admin_deactivate":
-        bot.send_message(chat_id, "➖ *خانة إلغاء تفعيل المجموعة:*\nأدخل آيدي الشات المراد طردها من قاعدة البيانات وفصلها:", parse_mode="Markdown", reply_markup=ForceReply(selective=True))
-        
-    elif call.data == "box_admin_broadcast":
-        bot.send_message(chat_id, "📢 *خانة إرسال الإذاعة:*\nاكتب هنا نص الإعلان المراد تعميمه وبثه لكافة المحطات الحالية:", parse_mode="Markdown", reply_markup=ForceReply(selective=True))
-        
-    elif call.data == "box_admin_groups":
-        if ACTIVATED_GROUPS:
-            txt = "📋 *المجموعات المفعلة:*\n" + "\n".join([f"• `{gid}` → {format_remaining_time(exp)}" for gid,exp in list(ACTIVATED_GROUPS.items())[:10]])
-        else: txt = "📭 لا توجد مجموعات"
-        bot.edit_message_text(bold_decor(txt), chat_id, msg.message_id, reply_markup=admin_panel_buttons(), parse_mode="Markdown")
-        
-    elif call.data == "box_admin_maint_on":
-        save_maintenance_status(True)
-        bot.edit_message_text(bold_decor("⚙️ *وضع الصيانة مُفعل الآن بنجاح*"), chat_id, msg.message_id, reply_markup=admin_panel_buttons(), parse_mode="Markdown")
-        
-    elif call.data == "box_admin_maint_off":
-        save_maintenance_status(False)
-        bot.edit_message_text(bold_decor("🟢 *وضع الصيانة معطل، عاد النظام للجميع*"), chat_id, msg.message_id, reply_markup=admin_panel_buttons(), parse_mode="Markdown")
-        
-    elif call.data == "box_admin_stopall":
-        with active_spam_lock: active_spam_targets.clear()
-        bot.edit_message_text(bold_decor("✅ *تم نسف وإيقاف جميع الهجمات بالسيرفر*"), chat_id, msg.message_id, reply_markup=admin_panel_buttons(), parse_mode="Markdown")
-        
-    elif call.data == "box_admin_restart":
-        bot.edit_message_text(bold_decor("🔄 *جاري إعادة تشغيل نواة الكور بالكامل...*"), chat_id, msg.message_id, parse_mode="Markdown")
-        time.sleep(1)
-        os.execl(sys.executable, sys.executable, *sys.argv)
-        
-    elif call.data == "box_admin_login":
-        bot.answer_callback_query(call.id, "🔑 جاري إعادة الاتصال بالحسابات...")
-        threading.Thread(target=start_all_accounts).start()
+    elif is_admin(user_id):
+        if call.data == "admin_activate_30":
+            if chat_id < 0:
+                expiry = time.time() + 30*86400
+                ACTIVATED_GROUPS[str(chat_id)] = expiry
+                save_activated_groups()
+                bot.edit_message_text(bold_decor(f"✅ *تم التفعيل 30 يومًا* لـ `{chat_id}`"), chat_id, msg.message_id, parse_mode="Markdown")
+            else:
+                bot.edit_message_text(bold_decor("❌ استخدم هذا الزر في مجموعة"), chat_id, msg.message_id, parse_mode="Markdown")
+        elif call.data == "admin_deactivate":
+            if str(chat_id) in ACTIVATED_GROUPS:
+                del ACTIVATED_GROUPS[str(chat_id)]
+                save_activated_groups()
+                bot.edit_message_text(bold_decor(f"✅ *تم إلغاء التفعيل* `{chat_id}`"), chat_id, msg.message_id, parse_mode="Markdown")
+            else:
+                bot.edit_message_text(bold_decor("⚠️ غير مفعلة"), chat_id, msg.message_id, parse_mode="Markdown")
+        elif call.data == "admin_groups":
+            if ACTIVATED_GROUPS:
+                txt = "📋 *المجموعات المفعلة:*\n" + "\n".join([f"• `{gid}` → {format_remaining_time(exp)}" for gid,exp in list(ACTIVATED_GROUPS.items())[:10]])
+            else:
+                txt = "📭 لا توجد مجموعات"
+            bot.edit_message_text(bold_decor(txt), chat_id, msg.message_id, parse_mode="Markdown")
+        elif call.data == "admin_maint_on":
+            save_maintenance_status(True)
+            bot.edit_message_text(bold_decor("⚙️ *وضع الصيانة مُفعل*"), chat_id, msg.message_id, parse_mode="Markdown")
+        elif call.data == "admin_maint_off":
+            save_maintenance_status(False)
+            bot.edit_message_text(bold_decor("🟢 *وضع الصيانة معطل*"), chat_id, msg.message_id, parse_mode="Markdown")
+        elif call.data == "admin_stopall":
+            with active_spam_lock: active_spam_targets.clear()
+            bot.edit_message_text(bold_decor("✅ *تم إيقاف جميع الهجمات*"), chat_id, msg.message_id, parse_mode="Markdown")
+        elif call.data == "admin_restart":
+            bot.edit_message_text(bold_decor("🔄 *جاري إعادة التشغيل...*"), chat_id, msg.message_id, parse_mode="Markdown")
+            time.sleep(1)
+            os.execl(sys.executable, sys.executable, *sys.argv)
+        elif call.data == "admin_broadcast":
+            bot.edit_message_text(bold_decor("📢 *أرسل رسالة الإذاعة الآن*\nاكتب: /broadcast نص الرسالة"), chat_id, msg.message_id, parse_mode="Markdown")
+        elif call.data == "admin_login":
+            bot.edit_message_text(bold_decor("🔑 *جاري إعادة تسجيل الحسابات...*"), chat_id, msg.message_id, parse_mode="Markdown")
+            threading.Thread(target=start_all_accounts).start()
+    
+    else:
+        bot.answer_callback_query(call.id, "⛔ هذا الزر للمطور فقط", show_alert=True)
     
     bot.answer_callback_query(call.id)
 
-# ========== استقبال وإدخال البيانات الفورية عبر الخانات المفتوحة ==========
-@bot.message_handler(func=lambda message: message.reply_to_message is not None)
-def handle_reply_boxes(message):
+# ========== أوامر السبام والستوب والستاتس والأكونتات ==========
+@bot.message_handler(commands=['spam', 'stop', 'status', 'accounts'])
+def handle_user_commands(message):
+    if is_private_chat(message):
+        if is_admin(message.from_user.id):
+            if message.text.startswith('/status') or message.text.startswith('/accounts'):
+                if message.text.startswith('/status'):
+                    status_command(message)
+                elif message.text.startswith('/accounts'):
+                    accounts_command(message)
+            else:
+                bot.reply_to(message, "❌ هذا الأمر لا يعمل في المحادثات الخاصة\nيرجى استخدامه في المجموعات فقط")
+        else:
+            bot.reply_to(message, "🗿")
+        return
+    
+    if message.text.startswith('/spam'):
+        spam_command(message)
+    elif message.text.startswith('/stop'):
+        stop_command(message)
+    elif message.text.startswith('/status'):
+        status_command(message)
+    elif message.text.startswith('/accounts'):
+        accounts_command(message)
+
+def spam_command(message):
+    if maintenance_mode and not is_admin(message.from_user.id):
+        bot.reply_to(message, bold_decor("⚙️ البوت في وضع الصيانة حاليًا\n\nسيتم إعادته للعمل قريبًا.\nنعتذر عن الإزعاج."), parse_mode="Markdown")
+        return
+    
+    allowed, reason = check_group_access(message)
+    if not allowed:
+        access_denied_message(message, reason)
+        return
+    
     user_id = message.from_user.id
     chat_id = message.chat.id
-    reply_title = message.reply_to_message.text
-    input_text = message.text.strip()
-
-    # 1. التقاط مدخلات خانة الهجوم (سبام ات)
-    if "خانة بدء الهجوم" in reply_title:
-        if maintenance_mode and not is_admin(user_id): return
-        if not is_group_activated(chat_id) and not is_admin(user_id): return
-        
-        parts = input_text.split()
-        if not parts: return
-        target_id = parts[0]
-        duration = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else None
-        
-        with active_spam_lock:
-            if target_id in active_spam_targets:
-                bot.reply_to(message, bold_decor(f"⚠️ الهدف {target_id} قيد الهجوم بالفعل!"))
-                return
-            active_spam_targets[target_id] = {'active': True, 'start_time': datetime.now(), 'duration': duration, 'user_id': user_id, 'chat_id': chat_id}
-            
-        duration_text = f" لمدة {duration} دقيقة" if duration else " بشكل مستمر"
-        bot.reply_to(message, bold_decor(f"🚀 بدأ سبام ات بنجاح عبر الخانة على: {target_id}{duration_text}"), parse_mode="Markdown")
-        threading.Thread(target=spam_worker, args=(target_id, duration, chat_id), daemon=True).start()
-
-    # 2. التقاط مدخلات خانة الإيقاف
-    elif "خانة إيقاف الهجوم" in reply_title:
-        if not is_group_activated(chat_id) and not is_admin(user_id): return
-        target_id = input_text
-        with active_spam_lock:
-            if target_id in active_spam_targets:
-                if active_spam_targets[target_id]['user_id'] == user_id or is_admin(user_id):
-                    active_spam_targets[target_id]['active'] = False
-                    time.sleep(0.5)
-                    if target_id in active_spam_targets: del active_spam_targets[target_id]
-                    bot.reply_to(message, bold_decor(f"⏹️ تم إيقاف سحب البيانات والسبام عن {target_id}"), parse_mode="Markdown")
-                else: bot.reply_to(message, bold_decor("❌ هذا الهجوم ليس لك لتوقيفه"))
-            else: bot.reply_to(message, bold_decor(f"❌ لا يوجد عمليات جارية على {target_id}"))
-
-    # 3. التقاط مدخلات تفعيل المجموعات
-    elif "خانة تفعيل المجموعة" in reply_title and is_admin(user_id):
-        parts = input_text.split()
-        if len(parts) != 2:
-            bot.reply_to(message, "❌ خطأ بالصيغة! أرسل الآيدي ومسافة ثم الأيام.")
+    
+    parts = message.text.split()
+    if len(parts) < 2:
+        bot.reply_to(message, bold_decor("❌ استخدم: `/spam [الهدف] [الدقائق]`"), parse_mode="Markdown")
+        return
+    
+    target_id = parts[1]
+    duration = int(parts[2]) if len(parts) > 2 else None
+    
+    try:
+        if not ChEck_Commande(target_id):
+            bot.reply_to(message, bold_decor("❌ user_id غير صالح!"), parse_mode="Markdown")
             return
-        target_group, days_count = parts[0], parts[1]
-        if days_count.isdigit():
-            expiry_time = time.time() + (int(days_count) * 86400)
-            ACTIVATED_GROUPS[str(target_group)] = expiry_time
-            save_activated_groups()
-            bot.reply_to(message, bold_decor(f"✅ تم تفعيل الشات المحددة للجروب بنجاح:\n🆔 ID: `{target_group}`\n⏳ المدة: {days_count} يوم"), parse_mode="Markdown")
+    except:
+        pass
+    
+    with active_spam_lock:
+        if target_id in active_spam_targets:
+            elapsed = datetime.now() - active_spam_targets[target_id]['start_time']
+            minutes = int(elapsed.total_seconds() / 60)
+            bot.reply_to(message, bold_decor(f"⚠️ سبام نشط على {target_id} منذ {minutes} دقيقة"), parse_mode="Markdown")
+            return
+        
+        active_spam_targets[target_id] = {
+            'active': True,
+            'start_time': datetime.now(),
+            'duration': duration,
+            'user_id': user_id,
+            'chat_id': chat_id
+        }
+    
+    duration_text = f" لمدة {duration} دقيقة" if duration else " بشكل مستمر"
+    bot.reply_to(message, bold_decor(f"🚀 بدأ السبام على {target_id}{duration_text}\nلإيقاف: /stop {target_id}"), parse_mode="Markdown")
+    
+    def run_spam():
+        spam_worker(target_id, duration, chat_id)
+        with active_spam_lock:
+            if target_id in active_spam_targets:
+                del active_spam_targets[target_id]
+    
+    thread = threading.Thread(target=run_spam, daemon=True)
+    thread.start()
 
-    # 4. التقاط مدخلات الغاء التفعيل
-    elif "خانة إلغاء تفعيل المجموعة" in reply_title and is_admin(user_id):
-        target_group = input_text
-        if str(target_group) in ACTIVATED_GROUPS:
-            del ACTIVATED_GROUPS[str(target_group)]
-            save_activated_groups()
-            bot.reply_to(message, bold_decor(f"✅ تم إلغاء تفعيل وطرد المجموعة `{target_group}` بنجاح."), parse_mode="Markdown")
-        else: bot.reply_to(message, "❌ المجموعة المدخلة غير متواجدة بالقائمة أصلاً.")
-
-    # 5. التقاط مدخلات الإذاعة البث العام
-    elif "خانة إرسال الإذاعة" in reply_title and is_admin(user_id):
-        formatted_msg = bold_decor(f"📢 إشعار صادر من الإدارة 📢\n\n{input_text}")
-        msg = bot.reply_to(message, bold_decor(f"🔄 جاري البث العام والتعميم..."))
-        success = 0
-        for group_id in list(ACTIVATED_GROUPS.keys()):
-            try:
-                bot.send_message(group_id, formatted_msg, parse_mode="Markdown")
-                success += 1
-                time.sleep(0.5)
-            except: pass
-        bot.edit_message_text(bold_decor(f"✅ تم الإرسال الإذاعي التلقائي لـ {success} جروب نشط."), msg.chat.id, msg.message_id, parse_mode="Markdown")
-
-# ========== ترك الأوامر العادية كخيار احتياطي موازي ==========
-@bot.message_handler(commands=['spam', 'stop', 'status', 'accounts', 'activate', 'deactivate', 'groups', 'maintenance', 'unmaintenance', 'stopall', 'restart', 'broadcast', 'login'])
-def fallback_commands(message):
+def stop_command(message):
+    if maintenance_mode and not is_admin(message.from_user.id):
+        bot.reply_to(message, bold_decor("⚙️ البوت في وضع الصيانة حاليًا\n\nسيتم إعادته للعمل قريبًا.\nنعتذر عن الإزعاج."), parse_mode="Markdown")
+        return
+    
+    allowed, reason = check_group_access(message)
+    if not allowed:
+        access_denied_message(message, reason)
+        return
+    
     user_id = message.from_user.id
-    if message.text.startswith('/activate') and is_admin(user_id) and message.chat.type != 'private':
-        parts = message.text.split()
-        if len(parts) == 2 and parts[1].isdigit():
-            days = int(parts[1])
-            ACTIVATED_GROUPS[str(message.chat.id)] = time.time() + (days * 86400)
-            save_activated_groups()
-            bot.reply_to(message, bold_decor(f"✅ تم تفعيل المجموعة الحالية لـ {days} يوم."))
+    parts = message.text.split()
+    
+    if len(parts) < 2:
+        bot.reply_to(message, bold_decor("❌ استخدم: /stop [الهدف]"), parse_mode="Markdown")
+        return
+    
+    target_id = parts[1]
+    
+    with active_spam_lock:
+        if target_id in active_spam_targets:
+            if active_spam_targets[target_id]['user_id'] == user_id or is_admin(user_id):
+                active_spam_targets[target_id]['active'] = False
+                time.sleep(0.5)
+                if target_id in active_spam_targets:
+                    del active_spam_targets[target_id]
+                bot.reply_to(message, bold_decor(f"⏹️ تم إيقاف السبام على {target_id}"), parse_mode="Markdown")
+            else:
+                bot.reply_to(message, bold_decor("❌ هذا الهجوم ليس لك"), parse_mode="Markdown")
+        else:
+            bot.reply_to(message, bold_decor(f"❌ لا يوجد سبام نشط على {target_id}"), parse_mode="Markdown")
 
-# ========== تشغيل محركات الخيوط المتوازية الخلفية للسيستم ==========
+def status_command(message):
+    if maintenance_mode and not is_admin(message.from_user.id):
+        bot.reply_to(message, bold_decor("⚙️ البوت في وضع الصيانة حاليًا\n\nسيتم إعادته للعمل قريبًا.\nنعتذر عن الإزعاج."), parse_mode="Markdown")
+        return
+    
+    if not is_admin(message.from_user.id):
+        allowed, reason = check_group_access(message)
+        if not allowed:
+            access_denied_message(message, reason)
+            return
+    
+    with active_spam_lock:
+        targets = list(active_spam_targets.keys())
+    
+    with connected_clients_lock:
+        accounts_count = len(connected_clients)
+    
+    chat_id = message.chat.id
+    group_status = "✅ مفعلة"
+    remaining = ""
+    
+    if str(chat_id) in ACTIVATED_GROUPS:
+        expiry = ACTIVATED_GROUPS[str(chat_id)]
+        if expiry > time.time():
+            remaining = f"\n⏳ متبقي: {format_remaining_time(expiry)}"
+        else:
+            group_status = "❌ منتهية الصلاحية"
+    
+    status_text = bold_decor(f"📊 *حالة النظام*\n\n📌 المجموعة: {group_status}{remaining}\n✅ الحسابات المتصلة: {accounts_count}/{len(ACCOUNTS)}\n🎯 الهجمات النشطة: {len(targets)}")
+    
+    if targets:
+        status_text += "\n\nالأهداف:\n" + "\n".join([f"• {tid}" for tid in targets[:5]])
+        if len(targets) > 5:
+            status_text += f"\n• ... و {len(targets) - 5} هدف آخر"
+    
+    bot.reply_to(message, status_text, parse_mode="Markdown")
+
+def accounts_command(message):
+    if maintenance_mode and not is_admin(message.from_user.id):
+        bot.reply_to(message, bold_decor("⚙️ البوت في وضع الصيانة حاليًا\n\nسيتم إعادته للعمل قريبًا.\nنعتذر عن الإزعاج."), parse_mode="Markdown")
+        return
+    
+    if not is_admin(message.from_user.id):
+        allowed, reason = check_group_access(message)
+        if not allowed:
+            access_denied_message(message, reason)
+            return
+    
+    with connected_clients_lock:
+        accounts_count = len(connected_clients)
+        accounts_list = list(connected_clients.keys())
+    
+    if not accounts_list:
+        bot.reply_to(message, bold_decor(f"📭 لا توجد حسابات متصلة\n✅ الإجمالي: {len(ACCOUNTS)}"), parse_mode="Markdown")
+        return
+    
+    text = f"📋 *الحسابات المتصلة:* {accounts_count}/{len(ACCOUNTS)}\n\n"
+    
+    for acc in accounts_list[:10]:
+        text += f"• `{acc}`\n"
+    
+    if len(accounts_list) > 10:
+        text += f"• ... و {len(accounts_list) - 10} حساب آخر"
+    
+    bot.reply_to(message, bold_decor(text), parse_mode="Markdown")
+
+# ========== أوامر المسؤول ==========
+@bot.message_handler(commands=['activate', 'deactivate', 'groups', 'maintenance', 'unmaintenance', 'stopall', 'restart', 'broadcast', 'login'])
+def handle_admin_commands(message):
+    if not is_admin(message.from_user.id):
+        bot.reply_to(message, bold_decor("⛔ هذا الأمر للمسؤولين فقط"), parse_mode="Markdown")
+        return
+    
+    if message.text.startswith('/activate'):
+        activate_group_command(message)
+    elif message.text.startswith('/deactivate'):
+        deactivate_group_command(message)
+    elif message.text.startswith('/groups'):
+        groups_command(message)
+    elif message.text.startswith('/maintenance'):
+        maintenance_on_command(message)
+    elif message.text.startswith('/unmaintenance'):
+        maintenance_off_command(message)
+    elif message.text.startswith('/stopall'):
+        stopall_command(message)
+    elif message.text.startswith('/restart'):
+        restart_command(message)
+    elif message.text.startswith('/broadcast'):
+        broadcast_command(message)
+    elif message.text.startswith('/login'):
+        login_command(message)
+
+def activate_group_command(message):
+    if message.chat.type == 'private':
+        bot.reply_to(message, bold_decor("❌ يجب استخدام هذا الأمر في المجموعة المراد تفعيلها"), parse_mode="Markdown")
+        return
+    
+    parts = message.text.split()
+    if len(parts) != 2:
+        bot.reply_to(message, bold_decor("❌ استخدم: /activate [عدد الأيام]"), parse_mode="Markdown")
+        return
+    
+    try:
+        days = int(parts[1])
+        if days <= 0:
+            bot.reply_to(message, bold_decor("❌ عدد الأيام يجب أن يكون أكبر من 0"), parse_mode="Markdown")
+            return
+        
+        chat_id = str(message.chat.id)
+        expiry_time = time.time() + (days * 86400)
+        
+        ACTIVATED_GROUPS[chat_id] = expiry_time
+        save_activated_groups()
+        
+        expiry_date = datetime.fromtimestamp(expiry_time).strftime("%Y-%m-%d %H:%M:%S")
+        
+        bot.reply_to(message, bold_decor(f"✅ تم تفعيل المجموعة بنجاح\n\n📌 المدة: {days} يوم\n⏳ تنتهي في: {expiry_date}\n🆔 معرف المجموعة: {chat_id}"), parse_mode="Markdown")
+        
+    except ValueError:
+        bot.reply_to(message, bold_decor("❌ عدد الأيام يجب أن يكون رقماً صحيحاً"), parse_mode="Markdown")
+
+def deactivate_group_command(message):
+    if message.chat.type == 'private':
+        bot.reply_to(message, bold_decor("❌ يجب استخدام هذا الأمر في المجموعة المراد إلغاء تفعيلها"), parse_mode="Markdown")
+        return
+    
+    chat_id = str(message.chat.id)
+    
+    if chat_id in ACTIVATED_GROUPS:
+        del ACTIVATED_GROUPS[chat_id]
+        save_activated_groups()
+        bot.reply_to(message, bold_decor(f"✅ تم إلغاء تفعيل المجموعة {chat_id}"), parse_mode="Markdown")
+    else:
+        bot.reply_to(message, bold_decor("⚠️ هذه المجموعة غير مفعلة أصلاً"), parse_mode="Markdown")
+
+def groups_command(message):
+    if not ACTIVATED_GROUPS:
+        bot.reply_to(message, bold_decor("📭 لا توجد مجموعات مفعلة حالياً"), parse_mode="Markdown")
+        return
+    
+    text = f"📋 *المجموعات المفعلة:* {len(ACTIVATED_GROUPS)}\n\n"
+    
+    for i, (group_id, expiry) in enumerate(list(ACTIVATED_GROUPS.items())[:10], 1):
+        remaining = format_remaining_time(expiry)
+        text += f"{i}. `{group_id}`\n   ⏳ {remaining}\n\n"
+    
+    if len(ACTIVATED_GROUPS) > 10:
+        text += f"\n... و {len(ACTIVATED_GROUPS) - 10} مجموعة أخرى"
+    
+    bot.reply_to(message, bold_decor(text), parse_mode="Markdown")
+
+def maintenance_on_command(message):
+    if maintenance_mode:
+        bot.reply_to(message, bold_decor("⚠️ وضع الصيانة مفعل بالفعل"), parse_mode="Markdown")
+        return
+    
+    save_maintenance_status(True)
+    
+    maintenance_msg = bold_decor("⚙️ تنبيه: وضع الصيانة ⚙️\n\nتم تفعيل وضع الصيانة.\nلن يتمكن المستخدمون من استخدام البوت حتى إشعار آخر.\n\nسيتم إعلامكم عند الانتهاء.")
+    
+    bot.reply_to(message, bold_decor("✅ تم تفعيل وضع الصيانة"), parse_mode="Markdown")
+    
+    threading.Thread(target=send_message_to_all_groups, args=(maintenance_msg,)).start()
+
+def maintenance_off_command(message):
+    if not maintenance_mode:
+        bot.reply_to(message, bold_decor("⚠️ وضع الصيانة غير مفعل أصلاً"), parse_mode="Markdown")
+        return
+    
+    save_maintenance_status(False)
+    
+    unmaintenance_msg = bold_decor("🎉 إشعار هام 🎉\n\nتم إيقاف وضع الصيانة.\nالبوت يعمل الآن بشكل طبيعي.\n\nشكراً لصبركم ❤️")
+    
+    bot.reply_to(message, bold_decor("✅ تم إيقاف وضع الصيانة"), parse_mode="Markdown")
+    
+    threading.Thread(target=send_message_to_all_groups, args=(unmaintenance_msg,)).start()
+
+def stopall_command(message):
+    with active_spam_lock:
+        targets_count = len(active_spam_targets)
+        active_spam_targets.clear()
+    
+    bot.reply_to(message, bold_decor(f"✅ تم إيقاف جميع الهجمات ({targets_count} هدف)"), parse_mode="Markdown")
+
+def restart_command(message):
+    bot.reply_to(message, bold_decor("🔄 جاري إعادة تشغيل البوت..."), parse_mode="Markdown")
+    time.sleep(2)
+    python = sys.executable
+    os.execl(python, python, *sys.argv)
+
+def broadcast_command(message):
+    parts = message.text.split(maxsplit=1)
+    if len(parts) < 2:
+        bot.reply_to(message, bold_decor("❌ استخدم: /broadcast [الرسالة]"), parse_mode="Markdown")
+        return
+    
+    broadcast_msg = parts[1]
+    formatted_msg = bold_decor(f"📢 إشعار من الإدارة 📢\n\n{broadcast_msg}")
+    
+    msg = bot.reply_to(message, bold_decor(f"🔄 جاري إرسال الرسالة إلى {len(ACTIVATED_GROUPS)} مجموعة..."), parse_mode="Markdown")
+    
+    success = 0
+    failed = 0
+    
+    for group_id in list(ACTIVATED_GROUPS.keys()):
+        try:
+            bot.send_message(group_id, formatted_msg, parse_mode="Markdown")
+            success += 1
+            time.sleep(1)
+        except Exception as e:
+            print(f"⚠️ فشل إرسال إلى {group_id}: {e}")
+            failed += 1
+    
+    bot.edit_message_text(bold_decor(f"✅ تم الإرسال\n✓ نجح: {success}\n✗ فشل: {failed}"), msg.chat.id, msg.message_id, parse_mode="Markdown")
+
+def login_command(message):
+    msg = bot.reply_to(message, bold_decor("🔄 جاري تسجيل دخول الحسابات..."), parse_mode="Markdown")
+    
+    def run_login():
+        start_all_accounts()
+        try:
+            bot.edit_message_text(bold_decor(f"✅ تم بدء تسجيل دخول {len(ACCOUNTS)} حساب"), msg.chat.id, msg.message_id, parse_mode="Markdown")
+        except:
+            pass
+    
+    thread = threading.Thread(target=run_login, daemon=True)
+    thread.start()
+
+@bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    if is_private_chat(message):
+        if is_admin(message.from_user.id):
+            bot.reply_to(message, fancy_text("مرحباً أيها المطور\nاستخدم /help لعرض أوامر المسؤول المتاحة"), parse_mode="Markdown")
+        else:
+            bot.reply_to(message, "🗿")
+        return
+    
+    if maintenance_mode and not is_admin(message.from_user.id):
+        return
+    
+    allowed, reason = check_group_access(message)
+    if not allowed:
+        if reason == "group_not_activated":
+            access_denied_message(message, reason)
+        return
+
+# ========== تشغيل البوت ==========
 restart_thread = threading.Thread(target=auto_restart_timer, daemon=True)
 restart_thread.start()
+print("✅ [AUTO-RESTART] تم تفعيل إعادة التشغيل التلقائي كل 11 دقيقة")
 
 def run_bot():
-    try: bot.infinity_polling()
+    try:
+        print("✅ بدء تشغيل البوت...")
+        bot.infinity_polling()
     except Exception as e:
+        print(f"❌ خطأ في البوت: {e}")
         time.sleep(5)
-        run_bot()
 
 expiry_check_thread = threading.Thread(target=check_expired_groups, daemon=True)
 expiry_check_thread.start()
 
 bot_thread = threading.Thread(target=run_bot, daemon=True)
 bot_thread.start()
+print("✅ تم تشغيل البوت في الخلفية")
 
 def main():
     print("═" * 60)
-    print("🔥 ISMAIL SPAM BOT V2 - نظام سبام ات والخانات مكتمل 100% 🔥")
+    print("🔥 ISMAIL SPAM BOT - الإصدار النهائي 🔥")
     print("═" * 60)
-    start_all_accounts()
+    print(f"✅ توكن البوت: {BOT_TOKEN[:15]}...")
+    print(f"✅ المسؤولون: {len(ADMIN_IDS)} مسؤول")
+    print(f"✅ عدد الحسابات: {len(ACCOUNTS)}")
+    print(f"✅ المجموعات المفعلة: {len(ACTIVATED_GROUPS)}")
+    print(f"✅ وضع الصيانة: {'مفعل' if maintenance_mode else 'غير مفعل'}")
+    print(f"✅ إعادة التشغيل التلقائي: كل 1 ساعة")
+    print("═" * 60)
+    
+    if ACTIVATED_GROUPS:
+        print("📋 المجموعات المفعلة:")
+        for i, (group_id, expiry) in enumerate(list(ACTIVATED_GROUPS.items())[:5], 1):
+            remaining = format_remaining_time(expiry)
+            print(f"   {i}. {group_id} - {remaining}")
+        if len(ACTIVATED_GROUPS) > 5:
+            print(f"   ... و {len(ACTIVATED_GROUPS) - 5} مجموعة أخرى")
+    else:
+        print("📭 لا توجد مجموعات مفعلة حالياً")
+    print("═" * 60)
+    
+    print("🔄 جاري تسجيل دخول الحسابات...")
+    account_threads = start_all_accounts()
+    
+    print("✅ البوت يعمل في الخلفية...")
+    print("📱 أضف البوت إلى مجموعتك واستخدم /activate لتفعيلها")
+    print("═" * 60)
+    
     try:
-        while True: time.sleep(60)
-    except KeyboardInterrupt: print("\n⏹️ تم إيقاف البوت")
+        while True:
+            time.sleep(60)
+            with connected_clients_lock:
+                conn_count = len(connected_clients)
+            with active_spam_lock:
+                active_count = len(active_spam_targets)
+            print(f"📊 إحصاءات: {conn_count}/{len(ACCOUNTS)} حسابات متصلة | {active_count} هجوم نشط | {len(ACTIVATED_GROUPS)} مجموعة مفعلة")
+    except KeyboardInterrupt:
+        print("\n⏹️ تم إيقاف البوت")
 
 if __name__ == "__main__":
     main()
