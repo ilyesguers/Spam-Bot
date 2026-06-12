@@ -21,6 +21,18 @@ from google.protobuf.timestamp_pb2 import Timestamp
 from concurrent.futures import ThreadPoolExecutor
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# ================= [ إعدادات المتغيرات البيئية ] =================
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+
+# جلب آيدي الماستر وتحويله إلى رقم (Integer)
+master_id_env = os.environ.get("MASTER_ADMIN_ID")
+MASTER_ADMIN_ID = int(master_id_env) if master_id_env and master_id_env.isdigit() else 0
+
+# جلب قائمة الأدمنز وتفكيكها من نص مفصول بفواصل إلى قائمة أرقام
+admin_ids_env = os.environ.get("ADMIN_IDS", "")
+ADMIN_IDS = [int(x.strip()) for x in admin_ids_env.split(",") if x.strip().isdigit()]
+# =================================================================
+
 try:
     from protobuf_decoder.protobuf_decoder import Parser
 except ImportError:
@@ -46,10 +58,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
-ADMIN_IDS = [Admin_Ids]
-
-MASTER_ADMIN_ID = Master_id
 
 GROUPS_FILE = "activated_groups.json"
 MAINTENANCE_FILE = "maintenance.json"
