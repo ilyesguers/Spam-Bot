@@ -488,7 +488,7 @@ class FF_CLient:
                 self.HeX_VaLue = DecodE_HeX(timestamp)
                 self.TimE_HEx = self.HeX_VaLue
                 self.JwT_ToKen_ = token.encode().hex()
-                print(f'✅ تم تسجيل الدخول: {self.AccounT_Uid}')
+                print(f'🔑 تم تسجيل الدخول: {self.AccounT_Uid}')
             except Exception as e:
                 print(f"⚠️ خطأ في فك التوكن: {e}")
                 time.sleep(5)
@@ -692,8 +692,22 @@ def help_command(message):
         if is_private_chat(message) and not is_admin(message.from_user.id):
             bot.reply_to(message, "🗿")
         else:
-            help_text = bold_decor("🛡️ *الأوامر المتاحة*\n/spam id [مدة]\n/stop id\n/status\n/accounts\n━━━━━━\nللمطور: /activate, /deactivate, /groups, /maintenance, /unmaintenance, /stopall, /restart, /broadcast, /login")
+            help_text = bold_decor("🛡️ *الأوامر المتاحة*\n/spam id [مدة]\n/stop id\n/status\n/accounts\n/id\n━━━━━━\nللمطور: /activate, /deactivate, /groups, /maintenance, /unmaintenance, /stopall, /restart, /broadcast, /login")
             bot.reply_to(message, help_text, parse_mode="Markdown")
+
+# ========== أمر الآيدي المضاف جديداً ==========
+@bot.message_handler(commands=['id'])
+def get_my_id(message):
+    # لا نقوم بوضع الفلتر هنا لكي يتمكن أي شخص من معرفة آيديه والجروب حتى لو كان غير مفعل
+    user_id = message.from_user.id
+    chat_id = message.chat.id
+    
+    if message.chat.type == "private":
+        text = f"👤 *الآيدي الخاص بك:* `{user_id}`"
+    else:
+        text = f"👤 *الآيدي الخاص بك:* `{user_id}`\n👥 *آيدي المجموعة:* `{chat_id}`"
+        
+    bot.reply_to(message, bold_decor(text), parse_mode="Markdown")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -715,7 +729,7 @@ def callback_handler(call):
         txt = "📋 *الحسابات المتصلة:*\n" + "\n".join([f"• `{a}`" for a in lst[:15]]) + (f"\n... و{len(lst)-15} أخرى" if len(lst)>15 else "")
         bot.edit_message_text(bold_decor(txt), chat_id, msg.message_id, parse_mode="Markdown")
     elif call.data == "menu_help":
-        help_txt = bold_decor("🛡️ *الأوامر المتاحة*\n/spam id [مدة]\n/stop id\n/status\n/accounts\n━━━━━━\nللمطور: /activate, /deactivate, /groups, /maintenance, /unmaintenance, /stopall, /restart, /broadcast, /login")
+        help_txt = bold_decor("🛡️ *الأوامر المتاحة*\n/spam id [مدة]\n/stop id\n/status\n/accounts\n/id\n━━━━━━\nللمطور: /activate, /deactivate, /groups, /maintenance, /unmaintenance, /stopall, /restart, /broadcast, /login")
         bot.edit_message_text(help_txt, chat_id, msg.message_id, parse_mode="Markdown")
     
     elif is_admin(user_id):
